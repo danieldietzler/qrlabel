@@ -11,14 +11,15 @@ var rootCmd = &cobra.Command{
 	Short: "A tool for generating QR code labels",
 	Long:  "A tool for generating QR code labels",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		file := pdf.CreatePdf(
+	RunE: func(cmd *cobra.Command, args []string) error {
+		file, err := pdf.CreatePdf(
 			pdf.PageLayout{
 				Cell: pdf.Cell{Width: 38, Height: 21.2}, Rows: 13, Cols: 5, Unit: "mm", SizeStr: "A4",
 				LabelOrientation: pdf.LabelOrientation.BOTTOM,
 			}, args[0], []pdf.Label{{"foo", "bar"}},
 		)
 		fmt.Println(file.Name())
+		return err
 	},
 }
 

@@ -28,6 +28,13 @@ type Label struct {
 	Label string
 }
 
+type imageProperties struct {
+	xPos,
+	yPos,
+	width,
+	height float64
+}
+
 type Orientation string
 
 var LabelOrientation = struct {
@@ -42,7 +49,7 @@ var LabelOrientation = struct {
 	RIGHT:  "R",
 }
 
-func CreatePdf(layout PageLayout, fileName string, labels []Label) *os.File {
+func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, error) {
 	reader, writer := io.Pipe()
 	pdf := fpdf.New("P", layout.Unit, layout.SizeStr, "")
 	pdf.SetFont("Arial", "", 12)
@@ -68,7 +75,7 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) *os.File {
 
 		pdf.RegisterImageOptionsReader("code", opt, reader)
 
-		imageXPos, imageYPos, margin, imageWidth, imageHeight, alignString := calculatePositions(layout, pdf, label)
+		properties, margin, alignString := calculatePositions(layout, pdf, label)
 
 		pdf.SetCellMargin(margin)
 
@@ -77,7 +84,7 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) *os.File {
 		)
 
 		pdf.ImageOptions(
-			"code", imageXPos, imageYPos, imageWidth, imageHeight, false, opt, 0, "",
+			"code", properties.xPos, properties.yPos, properties.width, properties.height, false, opt, 0, "",
 		)
 
 		if pdf.GetX()+layout.Cell.Width > width-marginWidth {
@@ -86,8 +93,8 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) *os.File {
 	}
 
 	file, _ := os.Create(fileName)
-	pdf.OutputAndClose(file)
-	return file
+
+	return file, pdf.OutputAndClose(file)
 }
 
 func generateQRCode(content string, writer *io.PipeWriter) {
@@ -101,40 +108,40 @@ func generateQRCode(content string, writer *io.PipeWriter) {
 }
 
 func calculatePositions(layout PageLayout, pdf *fpdf.Fpdf, label Label) (
-	imageXPos, imageYPos, margin, imageWidth, imageHeight float64, alignString string,
+	properties imageProperties, margin float64, alignString string,
 ) {
 	_, fontHeight := pdf.GetFontSize()
 
-	imageHeight = math.Min(layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Height-fontHeight))
-	imageWidth = math.Min(
+	properties.height = math.Min(layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Height-fontHeight))
+	properties.width = math.Min(
 		layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Width-pdf.GetStringWidth(label.Label)),
 	)
 
 	switch layout.LabelOrientation {
 	case LabelOrientation.BOTTOM:
-		margin = (layout.Cell.Height - (imageHeight + fontHeight)) / 3
-		imageXPos = pdf.GetX() + layout.Cell.Width/2 - imageHeight/2
-		imageYPos = pdf.GetY() + margin
+		margin = (layout.Cell.Height - (properties.height + fontHeight)) / 3
+		properties.xPos = pdf.GetX() + layout.Cell.Width/2 - properties.height/2
+		properties.yPos = pdf.GetY() + margin
 		alignString = "CB"
-		imageWidth = 0
+		properties.width = 0
 	case LabelOrientation.TOP:
-		margin = (layout.Cell.Height - (imageHeight + fontHeight)) / 3
-		imageXPos = pdf.GetX() + layout.Cell.Width/2 - imageHeight/2
-		imageYPos = pdf.GetY() + layout.Cell.Height - imageHeight - margin
+		margin = (layout.Cell.Height - (properties.height + fontHeight)) / 3
+		properties.xPos = pdf.GetX() + layout.Cell.Width/2 - properties.height/2
+		properties.yPos = pdf.GetY() + layout.Cell.Height - properties.height - margin
 		alignString = "CT"
-		imageWidth = 0
+		properties.width = 0
 	case LabelOrientation.LEFT:
-		margin = (layout.Cell.Width - (imageWidth + pdf.GetStringWidth(label.Label))) / 3
-		imageXPos = pdf.GetX() + layout.Cell.Width - imageWidth - margin
-		imageYPos = pdf.GetY()
+		margin = (layout.Cell.Width - (properties.width + pdf.GetStringWidth(label.Label))) / 3
+		properties.xPos = pdf.GetX() + layout.Cell.Width - properties.width - margin
+		properties.yPos = pdf.GetY()
 		alignString = "LM"
-		imageHeight = 0
+		properties.height = 0
 	case LabelOrientation.RIGHT:
-		margin = (layout.Cell.Width - (imageWidth + pdf.GetStringWidth(label.Label))) / 3
-		imageXPos = pdf.GetX() + margin
-		imageYPos = pdf.GetY()
+		margin = (layout.Cell.Width - (properties.width + pdf.GetStringWidth(label.Label))) / 3
+		properties.xPos = pdf.GetX() + margin
+		properties.yPos = pdf.GetY()
 		alignString = "RM"
-		imageHeight = 0
+		properties.height = 0
 	}
 
 	return
