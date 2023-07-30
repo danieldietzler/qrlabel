@@ -30,13 +30,6 @@ type Label struct {
 	Label string
 }
 
-type imageProperties struct {
-	xPos,
-	yPos,
-	width,
-	height float64
-}
-
 type Position string
 
 var LabelPosition = struct {
