@@ -12,10 +12,10 @@ import (
 type PageLayout struct {
 	Cell Cell
 	Rows,
-	Cols float64
+	Cols int
 	Unit,
 	SizeStr string
-	LabelOrientation Orientation
+	LabelPosition Position
 }
 
 type Cell struct {
@@ -35,13 +35,13 @@ type imageProperties struct {
 	height float64
 }
 
-type Orientation string
+type Position string
 
-var LabelOrientation = struct {
+var LabelPosition = struct {
 	TOP,
 	BOTTOM,
 	LEFT,
-	RIGHT Orientation
+	RIGHT Position
 }{
 	TOP:    "T",
 	BOTTOM: "B",
@@ -54,8 +54,8 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, er
 	pdf := fpdf.New("P", layout.Unit, layout.SizeStr, "")
 	pdf.SetFont("Arial", "", 12)
 	width, height := pdf.GetPageSize()
-	marginWidth := (width - layout.Cols*layout.Cell.Width) / 2
-	marginHeight := (height - layout.Rows*layout.Cell.Height) / 2
+	marginWidth := (width - float64(layout.Cols)*layout.Cell.Width) / 2
+	marginHeight := (height - float64(layout.Rows)*layout.Cell.Height) / 2
 	pdf.SetLeftMargin(marginWidth)
 	pdf.SetTopMargin(marginHeight)
 	pdf.SetAutoPageBreak(true, marginHeight)
@@ -117,26 +117,26 @@ func calculatePositions(layout PageLayout, pdf *fpdf.Fpdf, label Label) (
 		layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Width-pdf.GetStringWidth(label.Label)),
 	)
 
-	switch layout.LabelOrientation {
-	case LabelOrientation.BOTTOM:
+	switch layout.LabelPosition {
+	case LabelPosition.BOTTOM:
 		margin = (layout.Cell.Height - (properties.height + fontHeight)) / 3
 		properties.xPos = pdf.GetX() + layout.Cell.Width/2 - properties.height/2
 		properties.yPos = pdf.GetY() + margin
 		alignString = "CB"
 		properties.width = 0
-	case LabelOrientation.TOP:
+	case LabelPosition.TOP:
 		margin = (layout.Cell.Height - (properties.height + fontHeight)) / 3
 		properties.xPos = pdf.GetX() + layout.Cell.Width/2 - properties.height/2
 		properties.yPos = pdf.GetY() + layout.Cell.Height - properties.height - margin
 		alignString = "CT"
 		properties.width = 0
-	case LabelOrientation.LEFT:
+	case LabelPosition.LEFT:
 		margin = (layout.Cell.Width - (properties.width + pdf.GetStringWidth(label.Label))) / 3
 		properties.xPos = pdf.GetX() + layout.Cell.Width - properties.width - margin
 		properties.yPos = pdf.GetY()
 		alignString = "LM"
 		properties.height = 0
-	case LabelOrientation.RIGHT:
+	case LabelPosition.RIGHT:
 		margin = (layout.Cell.Width - (properties.width + pdf.GetStringWidth(label.Label))) / 3
 		properties.xPos = pdf.GetX() + margin
 		properties.yPos = pdf.GetY()
