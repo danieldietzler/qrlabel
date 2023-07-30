@@ -82,11 +82,13 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, er
 
 	for _, label := range labels {
 		reader, writer := io.Pipe()
+
+		// ensures that GetStringWidth has the right values
 		pdf.SetCellMargin(0)
 
-		properties, margin, alignString := calculatePositions(layout, pdf, label)
+		imageWidth, imageHeight, cellMargin, alignString := getSizeProperties(layout, pdf, label)
 
-		pdf.SetCellMargin(margin)
+		pdf.SetCellMargin(cellMargin)
 
 		generateQRCode(label.Content, writer)
 
@@ -96,11 +98,13 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, er
 			layout.Cell.Width, layout.Cell.Height, fmt.Sprintf(label.Label), "1", 0, alignString, false, 0, "",
 		)
 
+		imageXPos, imageYPos := calculateImagePosition(layout, pdf, imageWidth, imageHeight, cellMargin)
+
 		pdf.ImageOptions(
-			label.Content, properties.xPos, properties.yPos, properties.width, properties.height, false, opt, 0, "",
+			label.Content, imageXPos, imageYPos, imageWidth, imageHeight, false, opt, 0, "",
 		)
 
-		if pdf.GetX()+layout.Cell.Width > width-marginWidth {
+		if pdf.GetX()+cellMargin > width-marginWidth {
 			pdf.Ln(-1)
 		}
 	}
@@ -124,41 +128,54 @@ func generateQRCode(content string, writer *io.PipeWriter) {
 	}()
 }
 
-func calculatePositions(layout PageLayout, pdf *fpdf.Fpdf, label Label) (
-	properties imageProperties, margin float64, alignString string,
+func getSizeProperties(layout PageLayout, pdf *fpdf.Fpdf, label Label) (
+	imageWidth, imageHeight, margin float64, alignString string,
 ) {
 	_, fontHeight := pdf.GetFontSize()
 
-	properties.height = math.Min(layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Height-fontHeight))
-	properties.width = math.Min(
+	imageHeight = math.Min(layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Height-fontHeight))
+	imageWidth = math.Min(
 		layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Width-pdf.GetStringWidth(label.Label)),
 	)
 
 	switch layout.LabelPosition {
 	case LabelPosition.BOTTOM:
-		margin = (layout.Cell.Height - (properties.height + fontHeight)) / 3
-		properties.xPos = pdf.GetX() + layout.Cell.Width/2 - properties.height/2
-		properties.yPos = pdf.GetY() + margin
+		margin = (layout.Cell.Height - (imageHeight + fontHeight)) / 3
 		alignString = "CB"
-		properties.width = 0
+		imageWidth = 0
 	case LabelPosition.TOP:
-		margin = (layout.Cell.Height - (properties.height + fontHeight)) / 3
-		properties.xPos = pdf.GetX() + layout.Cell.Width/2 - properties.height/2
-		properties.yPos = pdf.GetY() + layout.Cell.Height - properties.height - margin
+		margin = (layout.Cell.Height - (imageHeight + fontHeight)) / 3
 		alignString = "CT"
-		properties.width = 0
+		imageWidth = 0
 	case LabelPosition.LEFT:
-		margin = (layout.Cell.Width - (properties.width + pdf.GetStringWidth(label.Label))) / 3
-		properties.xPos = pdf.GetX() + layout.Cell.Width - properties.width - margin
-		properties.yPos = pdf.GetY()
+		margin = (layout.Cell.Width - (imageWidth + pdf.GetStringWidth(label.Label))) / 3
 		alignString = "LM"
-		properties.height = 0
+		imageHeight = 0
 	case LabelPosition.RIGHT:
-		margin = (layout.Cell.Width - (properties.width + pdf.GetStringWidth(label.Label))) / 3
-		properties.xPos = pdf.GetX() + margin
-		properties.yPos = pdf.GetY()
+		margin = (layout.Cell.Width - (imageWidth + pdf.GetStringWidth(label.Label))) / 3
 		alignString = "RM"
-		properties.height = 0
+		imageHeight = 0
+	}
+
+	return
+}
+
+func calculateImagePosition(layout PageLayout, pdf *fpdf.Fpdf, imageWidth, imageHeight, cellMargin float64) (
+	imageXPos, imageYPos float64,
+) {
+	switch layout.LabelPosition {
+	case LabelPosition.BOTTOM:
+		imageXPos = pdf.GetX() - layout.Cell.Width/2 - imageHeight/2
+		imageYPos = pdf.GetY() + cellMargin
+	case LabelPosition.TOP:
+		imageXPos = pdf.GetX() - layout.Cell.Width/2 - imageHeight/2
+		imageYPos = pdf.GetY() + layout.Cell.Height - imageHeight - cellMargin
+	case LabelPosition.LEFT:
+		imageXPos = pdf.GetX() - imageWidth - cellMargin
+		imageYPos = pdf.GetY()
+	case LabelPosition.RIGHT:
+		imageXPos = pdf.GetX() - layout.Cell.Width + cellMargin
+		imageYPos = pdf.GetY()
 	}
 
 	return
