@@ -90,6 +90,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(CompletionCmd)
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 
 	rootCmd.Flags().Float64VarP(&LabelWidth, "width", "w", 38, "Width of a label in the specified unit")
 	rootCmd.Flags().Float64VarP(
@@ -100,13 +101,28 @@ func init() {
 	rootCmd.Flags().StringVarP(
 		&Unit, "unit", "u", "mm", `Unit of measurement ["pt"|"mm"|"cm"|"inch"]`,
 	)
+	rootCmd.RegisterFlagCompletionFunc(
+		"unit", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return []string{"pt", "mm", "cm", "inch"}, cobra.ShellCompDirectiveDefault
+		},
+	)
 	rootCmd.Flags().StringVarP(
 		&SizeStr, "pageSize", "s", "A4",
 		`The size string of the output pdf page ["A3"|"A4"|"A5"|"Letter"|"Legal"]`,
 	)
+	rootCmd.RegisterFlagCompletionFunc(
+		"pageSize", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return []string{"A3", "A4", "A5", "Letter", "Legal"}, cobra.ShellCompDirectiveDefault
+		},
+	)
 	rootCmd.Flags().StringVarP(
 		(*string)(&LabelPosition), "position", "p", string(pdf.LabelPosition.RIGHT),
 		`Label position relative to the QR code ["T" (top)|"B" (bottom)|"L" (left)|"R" (right)]`,
+	)
+	rootCmd.RegisterFlagCompletionFunc(
+		"position", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return []string{"T\ttop", "B\tbottom", "L\tleft", "R\tright"}, cobra.ShellCompDirectiveDefault
+		},
 	)
 	rootCmd.Flags().StringVarP(
 		&InputFileName, "inputFile", "i", "",
@@ -129,7 +145,6 @@ func init() {
 	rootCmd.MarkFlagsRequiredTogether("pageHeight", "pageWidth")
 	rootCmd.MarkFlagsMutuallyExclusive("pageSize", "pageHeight")
 	rootCmd.MarkFlagsMutuallyExclusive("pageSize", "pageWidth")
-	rootCmd.MarkFlagFilename("inputFile")
 }
 
 func Execute() {
