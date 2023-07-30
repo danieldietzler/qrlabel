@@ -96,15 +96,15 @@ func init() {
 	rootCmd.Flags().IntVarP(&Rows, "rows", "r", 10, "Number of rows per page")
 	rootCmd.Flags().IntVarP(&Cols, "cols", "c", 5, "Number of columns per page")
 	rootCmd.Flags().StringVarP(
-		&Unit, "unit", "u", "mm", `Unit of measurement. Available options are "pt", "mm", "cm" and "inch"`,
+		&Unit, "unit", "u", "mm", `Unit of measurement ["pt"|"mm"|"cm"|"inch"]`,
 	)
 	rootCmd.Flags().StringVarP(
 		&SizeStr, "pageSize", "s", "A4",
-		`The size string of the output pdf page. Available options are "A3", "A4", "A5", "Letter" and "Legal"`,
+		`The size string of the output pdf page ["A3"|"A4"|"A5"|"Letter"|"Legal"]`,
 	)
 	rootCmd.Flags().StringVarP(
 		(*string)(&LabelPosition), "position", "p", string(pdf.LabelPosition.RIGHT),
-		`Label position relative to the QR code. Available options are "T" (top), "B" (bottom), "L" (left), "R" (right)`,
+		`Label position relative to the QR code ["T" (top)|"B" (bottom)|"L" (left)|"R" (right)]`,
 	)
 	rootCmd.Flags().StringVarP(
 		&InputFileName, "inputFile", "i", "",
