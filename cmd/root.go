@@ -89,6 +89,8 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.AddCommand(CompletionCmd)
+
 	rootCmd.Flags().Float64VarP(&LabelWidth, "width", "w", 38, "Width of a label in the specified unit")
 	rootCmd.Flags().Float64VarP(
 		&LabelHeight, "height", "H", 21.2, "Height of a label in the specified unit",
