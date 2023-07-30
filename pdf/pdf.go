@@ -16,6 +16,7 @@ type PageLayout struct {
 	Cols int
 	Unit,
 	SizeStr string
+	Size          fpdf.SizeType
 	LabelPosition Position
 }
 
@@ -51,8 +52,18 @@ var LabelPosition = struct {
 }
 
 func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, error) {
-	reader, writer := io.Pipe()
-	pdf := fpdf.New("P", layout.Unit, layout.SizeStr, "")
+	var pdf *fpdf.Fpdf
+	if len(layout.SizeStr) > 0 {
+		pdf = fpdf.New("P", layout.Unit, layout.SizeStr, "")
+	} else {
+		pdf = fpdf.NewCustom(
+			&fpdf.InitType{
+				OrientationStr: "P",
+				UnitStr:        layout.Unit,
+				Size:           layout.Size,
+			},
+		)
+	}
 	pdf.SetFont("Arial", "", 12)
 	width, height := pdf.GetPageSize()
 	marginWidth := (width - float64(layout.Cols)*layout.Cell.Width) / 2
@@ -63,29 +74,30 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, er
 
 	pdf.AddPage()
 
+	opt := fpdf.ImageOptions{
+		ImageType:             "png",
+		ReadDpi:               true,
+		AllowNegativePosition: true,
+	}
+
 	for _, label := range labels {
+		reader, writer := io.Pipe()
 		pdf.SetCellMargin(0)
-
-		opt := fpdf.ImageOptions{
-			ImageType:             "png",
-			ReadDpi:               true,
-			AllowNegativePosition: true,
-		}
-
-		generateQRCode(label.Content, writer)
-
-		pdf.RegisterImageOptionsReader("code", opt, reader)
 
 		properties, margin, alignString := calculatePositions(layout, pdf, label)
 
 		pdf.SetCellMargin(margin)
+
+		generateQRCode(label.Content, writer)
+
+		pdf.RegisterImageOptionsReader(label.Content, opt, reader)
 
 		pdf.CellFormat(
 			layout.Cell.Width, layout.Cell.Height, fmt.Sprintf(label.Label), "1", 0, alignString, false, 0, "",
 		)
 
 		pdf.ImageOptions(
-			"code", properties.xPos, properties.yPos, properties.width, properties.height, false, opt, 0, "",
+			label.Content, properties.xPos, properties.yPos, properties.width, properties.height, false, opt, 0, "",
 		)
 
 		if pdf.GetX()+layout.Cell.Width > width-marginWidth {
@@ -108,7 +120,7 @@ func generateQRCode(content string, writer *io.PipeWriter) {
 
 	go func() {
 		code.Write(300, writer)
-		defer writer.Close()
+		writer.Close()
 	}()
 }
 

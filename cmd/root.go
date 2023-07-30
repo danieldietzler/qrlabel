@@ -3,17 +3,25 @@ package cmd
 import (
 	"fmt"
 	"github.com/danieldietzler/qrlabel/pdf"
+	"github.com/go-pdf/fpdf"
 	"github.com/spf13/cobra"
+	"io"
+	"os"
+	"strings"
 )
 
 var (
-	Height        float64
-	Width         float64
+	LabelHeight   float64
+	LabelWidth    float64
 	Rows          int
 	Cols          int
 	Unit          string
 	SizeStr       string
+	PageHeight    float64
+	PageWidth     float64
 	LabelPosition pdf.Position
+	InputFileName string
+	Separator     string
 )
 
 var rootCmd = &cobra.Command{
@@ -22,15 +30,58 @@ var rootCmd = &cobra.Command{
 	Long:  "A tool for generating QR code labels",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var inputReader io.Reader
+		if len(InputFileName) == 0 {
+			inputReader = cmd.InOrStdin()
+		} else {
+			var err error
+			inputReader, err = os.Open(InputFileName)
+
+			if err != nil {
+				return err
+			}
+		}
+
+		inputStream, err := io.ReadAll(inputReader)
+
+		if err != nil {
+			return err
+		}
+
+		input := string(inputStream)
+
+		var labels []pdf.Label
+		for _, line := range strings.Split(input, "\n") {
+			if line == "" {
+				continue
+			}
+			elements := strings.SplitN(line, Separator, 2)
+
+			if len(elements) == 2 {
+				labels = append(labels, pdf.Label{Content: elements[0], Label: elements[1]})
+			} else if len(elements) == 1 {
+				labels = append(labels, pdf.Label{Content: elements[0], Label: elements[0]})
+			}
+
+		}
+
+		if cmd.Flags().Changed("pageHeight") {
+			SizeStr = ""
+		}
+
 		file, err := pdf.CreatePdf(
 			pdf.PageLayout{
-				Cell:          pdf.Cell{Width: Width, Height: Height},
-				Rows:          Rows,
-				Cols:          Cols,
-				Unit:          Unit,
-				SizeStr:       SizeStr,
+				Cell:    pdf.Cell{Width: LabelWidth, Height: LabelHeight},
+				Rows:    Rows,
+				Cols:    Cols,
+				Unit:    Unit,
+				SizeStr: SizeStr,
+				Size: fpdf.SizeType{
+					Wd: PageWidth,
+					Ht: PageHeight,
+				},
 				LabelPosition: LabelPosition,
-			}, args[0], []pdf.Label{{"foo", "bar"}},
+			}, args[0], labels,
 		)
 		fmt.Println(file.Name())
 		return err
@@ -38,9 +89,9 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Flags().Float64VarP(&Width, "width", "W", 38, "Width of a label in the specified unit")
+	rootCmd.Flags().Float64VarP(&LabelWidth, "width", "w", 38, "Width of a label in the specified unit")
 	rootCmd.Flags().Float64VarP(
-		&Height, "height", "H", 21.2, "Height of a label in the specified unit",
+		&LabelHeight, "height", "H", 21.2, "Height of a label in the specified unit",
 	)
 	rootCmd.Flags().IntVarP(&Rows, "rows", "r", 10, "Number of rows per page")
 	rootCmd.Flags().IntVarP(&Cols, "cols", "c", 5, "Number of columns per page")
@@ -48,13 +99,35 @@ func init() {
 		&Unit, "unit", "u", "mm", `Unit of measurement. Available options are "pt", "mm", "cm" and "inch"`,
 	)
 	rootCmd.Flags().StringVarP(
-		&SizeStr, "size", "s", "A4",
-		`The size of the output pdf page. Available options are "A3", "A4", "A5", "Letter" and "Legal"`,
+		&SizeStr, "pageSize", "s", "A4",
+		`The size string of the output pdf page. Available options are "A3", "A4", "A5", "Letter" and "Legal"`,
 	)
 	rootCmd.Flags().StringVarP(
-		(*string)(&LabelPosition), "position", "p", string(pdf.LabelPosition.LEFT),
+		(*string)(&LabelPosition), "position", "p", string(pdf.LabelPosition.RIGHT),
 		`Label position relative to the QR code. Available options are "T" (top), "B" (bottom), "L" (left), "R" (right)`,
 	)
+	rootCmd.Flags().StringVarP(
+		&InputFileName, "inputFile", "i", "",
+		"The file containing the label values. If not provided, the input will be read from stdin."+
+			"Each line represents a new label. The use of a separator is optional. If there is none, label and content will be the same",
+	)
+	rootCmd.Flags().StringVarP(
+		&Separator, "separator", "S", ":",
+		`The character at which each input line should be split for the QR code content and label.`+
+			`(e.g. "example.org:example text", while the QR code will be generated for example.org and "example text" will be displayed)`,
+	)
+	rootCmd.Flags().Float64Var(
+		&PageHeight, "pageHeight", 297,
+		"The page height in the specified unit. Must be set along pageWidth. The page size and the exact dimensions are mutually exclusive",
+	)
+	rootCmd.Flags().Float64Var(
+		&PageWidth, "pageWidth", 210,
+		"The page width in the specified unit. Must be set along pageHeight. The page size and the exact dimensions are mutually exclusive",
+	)
+	rootCmd.MarkFlagsRequiredTogether("pageHeight", "pageWidth")
+	rootCmd.MarkFlagsMutuallyExclusive("pageSize", "pageHeight")
+	rootCmd.MarkFlagsMutuallyExclusive("pageSize", "pageWidth")
+	rootCmd.MarkFlagFilename("inputFile")
 }
 
 func Execute() {
