@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"strings"
 )
 
 type PageLayout struct {
@@ -90,6 +91,10 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, er
 		if pdf.GetX()+layout.Cell.Width > width-marginWidth {
 			pdf.Ln(-1)
 		}
+	}
+
+	if !strings.HasSuffix(fileName, ".pdf") {
+		fileName += ".pdf"
 	}
 
 	file, _ := os.Create(fileName)
