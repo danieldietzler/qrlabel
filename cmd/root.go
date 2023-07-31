@@ -130,7 +130,7 @@ func init() {
 			"Each line represents a new label. The use of a separator is optional. If there is none, label and content will be the same",
 	)
 	rootCmd.Flags().StringVarP(
-		&Separator, "separator", "S", ":",
+		&Separator, "separator", "S", ";",
 		`The character at which each input line should be split for the QR code content and label.`+
 			`(e.g. "example.org:example text", while the QR code will be generated for example.org and "example text" will be displayed)`,
 	)
