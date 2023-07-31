@@ -90,7 +90,6 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(CompletionCmd)
-	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 
 	rootCmd.Flags().Float64VarP(&LabelWidth, "width", "w", 38, "Width of a label in the specified unit")
 	rootCmd.Flags().Float64VarP(
