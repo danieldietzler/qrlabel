@@ -44,7 +44,9 @@ var LabelPosition = struct {
 	RIGHT:  "R",
 }
 
-func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, error) {
+func CreatePdf(layout PageLayout, recoveryLevel qrcode.RecoveryLevel, fileName string, labels []Label) (
+	*os.File, error,
+) {
 	var pdf *fpdf.Fpdf
 	if len(layout.SizeStr) > 0 {
 		pdf = fpdf.New("P", layout.Unit, layout.SizeStr, "")
@@ -83,7 +85,7 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, er
 
 		pdf.SetCellMargin(cellMargin)
 
-		generateQRCode(label.Content, writer)
+		generateQRCode(label.Content, recoveryLevel, writer)
 
 		pdf.RegisterImageOptionsReader(label.Content, opt, reader)
 
@@ -111,8 +113,8 @@ func CreatePdf(layout PageLayout, fileName string, labels []Label) (*os.File, er
 	return file, pdf.OutputAndClose(file)
 }
 
-func generateQRCode(content string, writer *io.PipeWriter) {
-	code, _ := qrcode.New(content, qrcode.Medium)
+func generateQRCode(content string, recoveryLevel qrcode.RecoveryLevel, writer *io.PipeWriter) {
+	code, _ := qrcode.New(content, recoveryLevel)
 	code.DisableBorder = true
 
 	go func() {

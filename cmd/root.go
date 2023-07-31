@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/danieldietzler/qrlabel/pdf"
 	"github.com/go-pdf/fpdf"
+	"github.com/skip2/go-qrcode"
 	"github.com/spf13/cobra"
 	"io"
 	"os"
@@ -22,6 +23,7 @@ var (
 	LabelPosition pdf.Position
 	InputFileName string
 	Separator     string
+	RecoveryLevel qrcode.RecoveryLevel
 )
 
 var rootCmd = &cobra.Command{
@@ -81,7 +83,7 @@ var rootCmd = &cobra.Command{
 					Ht: PageHeight,
 				},
 				LabelPosition: LabelPosition,
-			}, args[0], labels,
+			}, RecoveryLevel, args[0], labels,
 		)
 		fmt.Println(file.Name())
 		return err
@@ -140,6 +142,17 @@ func init() {
 	rootCmd.Flags().Float64Var(
 		&PageWidth, "pageWidth", 210,
 		"The page width in the specified unit. Must be set along pageHeight. The page size and the exact dimensions are mutually exclusive",
+	)
+	rootCmd.Flags().IntVarP(
+		(*int)(&RecoveryLevel), "recoveryLevel", "R", int(qrcode.Medium),
+		`The recovery level of the QR code.`+
+			`There should be no need to change it unless you do experience any issues with scanning performance. [0 (low)|1 (medium)|2 (high)|3 (highest)]`,
+	)
+	rootCmd.RegisterFlagCompletionFunc(
+		"recoveryLevel",
+		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return []string{"0", "1", "2", "3"}, cobra.ShellCompDirectiveDefault
+		},
 	)
 	rootCmd.MarkFlagsRequiredTogether("pageHeight", "pageWidth")
 	rootCmd.MarkFlagsMutuallyExclusive("pageSize", "pageHeight")
