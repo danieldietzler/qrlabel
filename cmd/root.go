@@ -133,7 +133,7 @@ func init() {
 	rootCmd.Flags().StringVarP(
 		&Separator, "separator", "S", ";",
 		`The character at which each input line should be split for the QR code content and label.`+
-			`(e.g. "example.org:example text", while the QR code will be generated for example.org and "example text" will be displayed)`,
+			`(e.g. "example.org;example text", while the QR code will be generated for example.org and "example text" will be displayed)`,
 	)
 	rootCmd.Flags().Float64Var(
 		&PageHeight, "pageHeight", 297,
