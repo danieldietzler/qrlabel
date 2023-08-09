@@ -45,9 +45,10 @@ var LabelPosition = struct {
 	RIGHT:  "R",
 }
 
-func CreatePdf(layout PageLayout, recoveryLevel qrcode.RecoveryLevel, fileName string, labels []Label) (
-	*os.File, error,
-) {
+func CreatePdf(
+	layout PageLayout, recoveryLevel qrcode.RecoveryLevel, minQrWidthPercentage float64, fileName string,
+	labels []Label,
+) (*os.File, error) {
 	var pdf *fpdf.Fpdf
 	if len(layout.SizeStr) > 0 {
 		pdf = fpdf.New("P", layout.Unit, layout.SizeStr, "")
@@ -62,8 +63,8 @@ func CreatePdf(layout PageLayout, recoveryLevel qrcode.RecoveryLevel, fileName s
 	}
 	pdf.SetFont("Arial", "", layout.FontSize)
 	width, height := pdf.GetPageSize()
-	marginWidth := (width - float64(layout.Cols)*layout.Cell.Width) / 2
-	marginHeight := (height - float64(layout.Rows)*layout.Cell.Height) / 2
+	marginWidth := math.Max(0, (width-float64(layout.Cols)*layout.Cell.Width)/2)
+	marginHeight := math.Max(0, (height-float64(layout.Rows)*layout.Cell.Height)/2)
 	pdf.SetLeftMargin(marginWidth)
 	pdf.SetTopMargin(marginHeight)
 	pdf.SetAutoPageBreak(true, marginHeight)
@@ -82,7 +83,7 @@ func CreatePdf(layout PageLayout, recoveryLevel qrcode.RecoveryLevel, fileName s
 		// ensures that GetStringWidth has the right values
 		pdf.SetCellMargin(0)
 
-		imageWidth, imageHeight, cellMargin, alignString := getSizeProperties(layout, pdf, label)
+		imageWidth, imageHeight, cellMargin, alignString := getSizeProperties(layout, pdf, label, minQrWidthPercentage)
 
 		pdf.SetCellMargin(cellMargin)
 
@@ -124,9 +125,9 @@ func generateQRCode(content string, recoveryLevel qrcode.RecoveryLevel, writer *
 	}()
 }
 
-func getSizeProperties(layout PageLayout, pdf *fpdf.Fpdf, label Label) (
-	imageWidth, imageHeight, margin float64, alignString string,
-) {
+func getSizeProperties(
+	layout PageLayout, pdf *fpdf.Fpdf, label Label, minQrWidthPercentage float64,
+) (imageWidth, imageHeight, margin float64, alignString string) {
 	_, fontHeight := pdf.GetFontSize()
 
 	imageHeight = math.Min(layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Height-fontHeight))
@@ -134,23 +135,36 @@ func getSizeProperties(layout PageLayout, pdf *fpdf.Fpdf, label Label) (
 		layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Width-pdf.GetStringWidth(label.Label)),
 	)
 
+	minQrWidth := layout.Cell.Width * (minQrWidthPercentage / 100)
+	if imageWidth < minQrWidth {
+		imageWidth = minQrWidth
+
+		fontSize, _ := pdf.GetFontSize()
+		for layout.Cell.Width-minQrWidth < pdf.GetStringWidth(label.Label) {
+			fontSize--
+			pdf.SetFontSize(fontSize)
+		}
+
+		fmt.Fprintf(os.Stderr, "Decreased font size to %.1f to fit label\n", fontSize)
+	}
+
 	switch layout.LabelPosition {
 	case LabelPosition.BOTTOM:
 		margin = (layout.Cell.Height - (imageHeight + fontHeight)) / 3
 		alignString = "CB"
-		imageWidth = 0
+		imageWidth = imageHeight
 	case LabelPosition.TOP:
 		margin = (layout.Cell.Height - (imageHeight + fontHeight)) / 3
 		alignString = "CT"
-		imageWidth = 0
+		imageWidth = imageHeight
 	case LabelPosition.LEFT:
 		margin = (layout.Cell.Width - (imageWidth + pdf.GetStringWidth(label.Label))) / 3
 		alignString = "LM"
-		imageHeight = 0
+		imageHeight = imageWidth
 	case LabelPosition.RIGHT:
 		margin = (layout.Cell.Width - (imageWidth + pdf.GetStringWidth(label.Label))) / 3
 		alignString = "RM"
-		imageHeight = 0
+		imageHeight = imageWidth
 	}
 
 	return
@@ -168,10 +182,10 @@ func calculateImagePosition(layout PageLayout, pdf *fpdf.Fpdf, imageWidth, image
 		imageYPos = pdf.GetY() + layout.Cell.Height - imageHeight - cellMargin
 	case LabelPosition.LEFT:
 		imageXPos = pdf.GetX() - imageWidth - cellMargin
-		imageYPos = pdf.GetY()
+		imageYPos = pdf.GetY() + layout.Cell.Height/2 - imageHeight/2
 	case LabelPosition.RIGHT:
 		imageXPos = pdf.GetX() - layout.Cell.Width + cellMargin
-		imageYPos = pdf.GetY()
+		imageYPos = pdf.GetY() + layout.Cell.Height/2 - imageHeight/2
 	}
 
 	return

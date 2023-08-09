@@ -12,19 +12,20 @@ import (
 )
 
 var (
-	LabelHeight   float64
-	LabelWidth    float64
-	Rows          int
-	Cols          int
-	Unit          string
-	SizeStr       string
-	PageHeight    float64
-	PageWidth     float64
-	LabelPosition pdf.Position
-	InputFileName string
-	Separator     string
-	RecoveryLevel qrcode.RecoveryLevel
-	FontSize      float64
+	LabelHeight          float64
+	LabelWidth           float64
+	Rows                 int
+	Cols                 int
+	Unit                 string
+	SizeStr              string
+	PageHeight           float64
+	PageWidth            float64
+	LabelPosition        pdf.Position
+	InputFileName        string
+	Separator            string
+	RecoveryLevel        qrcode.RecoveryLevel
+	FontSize             float64
+	MinQrWidthPercentage float64
 )
 
 var rootCmd = &cobra.Command{
@@ -85,7 +86,7 @@ var rootCmd = &cobra.Command{
 				},
 				LabelPosition: LabelPosition,
 				FontSize:      FontSize,
-			}, RecoveryLevel, args[0], labels,
+			}, RecoveryLevel, MinQrWidthPercentage, args[0], labels,
 		)
 		fmt.Println(file.Name())
 		return err
@@ -161,8 +162,8 @@ func init() {
 		"The preferred font size used for the labels. May be automatically decreased, if necessary.",
 	)
 	rootCmd.Flags().Float64Var(
-		&FontSize, "fontSize", 12,
-		"The preferred font size used for the labels. May be automatically decreased, if necessary.",
+		&MinQrWidthPercentage, "minqrwidth", 30,
+		"The minimum QR code width in percent. Only used when automatically decreasing the font size to fit label text.",
 	)
 
 	rootCmd.MarkFlagsRequiredTogether("pageHeight", "pageWidth")
