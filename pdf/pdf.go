@@ -18,6 +18,7 @@ type PageLayout struct {
 	SizeStr string
 	Size          fpdf.SizeType
 	LabelPosition Position
+	FontSize      float64
 }
 
 type Cell struct {
@@ -59,7 +60,7 @@ func CreatePdf(layout PageLayout, recoveryLevel qrcode.RecoveryLevel, fileName s
 			},
 		)
 	}
-	pdf.SetFont("Arial", "", 12)
+	pdf.SetFont("Arial", "", layout.FontSize)
 	width, height := pdf.GetPageSize()
 	marginWidth := (width - float64(layout.Cols)*layout.Cell.Width) / 2
 	marginHeight := (height - float64(layout.Rows)*layout.Cell.Height) / 2

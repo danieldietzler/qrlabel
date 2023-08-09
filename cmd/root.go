@@ -24,6 +24,7 @@ var (
 	InputFileName string
 	Separator     string
 	RecoveryLevel qrcode.RecoveryLevel
+	FontSize      float64
 )
 
 var rootCmd = &cobra.Command{
@@ -83,6 +84,7 @@ var rootCmd = &cobra.Command{
 					Ht: PageHeight,
 				},
 				LabelPosition: LabelPosition,
+				FontSize:      FontSize,
 			}, RecoveryLevel, args[0], labels,
 		)
 		fmt.Println(file.Name())
@@ -154,6 +156,15 @@ func init() {
 			return []string{"0", "1", "2", "3"}, cobra.ShellCompDirectiveDefault
 		},
 	)
+	rootCmd.Flags().Float64Var(
+		&FontSize, "fontSize", 12,
+		"The preferred font size used for the labels. May be automatically decreased, if necessary.",
+	)
+	rootCmd.Flags().Float64Var(
+		&FontSize, "fontSize", 12,
+		"The preferred font size used for the labels. May be automatically decreased, if necessary.",
+	)
+
 	rootCmd.MarkFlagsRequiredTogether("pageHeight", "pageWidth")
 	rootCmd.MarkFlagsMutuallyExclusive("pageSize", "pageHeight")
 	rootCmd.MarkFlagsMutuallyExclusive("pageSize", "pageWidth")
