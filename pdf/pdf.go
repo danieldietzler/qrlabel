@@ -46,7 +46,7 @@ var LabelPosition = struct {
 }
 
 func CreatePdf(
-	layout PageLayout, recoveryLevel qrcode.RecoveryLevel, minQrWidthPercentage float64, fileName string,
+	layout PageLayout, recoveryLevel qrcode.RecoveryLevel, minQrWidthPercentage float64, isBorder bool, fileName string,
 	labels []Label,
 ) (*os.File, error) {
 	var pdf *fpdf.Fpdf
@@ -91,8 +91,13 @@ func CreatePdf(
 
 		pdf.RegisterImageOptionsReader(label.Content, opt, reader)
 
+		border := "0"
+		if isBorder {
+			border = "1"
+		}
+
 		pdf.CellFormat(
-			layout.Cell.Width, layout.Cell.Height, fmt.Sprintf(label.Label), "1", 0, alignString, false, 0, "",
+			layout.Cell.Width, layout.Cell.Height, fmt.Sprintf(label.Label), border, 0, alignString, false, 0, "",
 		)
 
 		imageXPos, imageYPos := calculateImagePosition(layout, pdf, imageWidth, imageHeight, cellMargin)

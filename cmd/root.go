@@ -26,6 +26,7 @@ var (
 	RecoveryLevel        qrcode.RecoveryLevel
 	FontSize             float64
 	MinQrWidthPercentage float64
+	IsBorder             bool
 )
 
 var rootCmd = &cobra.Command{
@@ -86,7 +87,7 @@ var rootCmd = &cobra.Command{
 				},
 				LabelPosition: LabelPosition,
 				FontSize:      FontSize,
-			}, RecoveryLevel, MinQrWidthPercentage, args[0], labels,
+			}, RecoveryLevel, MinQrWidthPercentage, IsBorder, args[0], labels,
 		)
 		fmt.Println(file.Name())
 		return err
@@ -164,6 +165,10 @@ func init() {
 	rootCmd.Flags().Float64Var(
 		&MinQrWidthPercentage, "minqrwidth", 30,
 		"The minimum QR code width in percent. Only used when automatically decreasing the font size to fit label text.",
+	)
+	rootCmd.Flags().BoolVar(
+		&IsBorder, "border", false,
+		"Enables a black border for each label",
 	)
 
 	rootCmd.MarkFlagsRequiredTogether("pageHeight", "pageWidth")
