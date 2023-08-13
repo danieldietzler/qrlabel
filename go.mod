@@ -1,6 +1,6 @@
 module github.com/danieldietzler/qrlabel
 
-go 1.20
+go 1.21
 
 require (
 	github.com/go-pdf/fpdf v0.8.0
