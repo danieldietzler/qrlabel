@@ -135,10 +135,8 @@ func getSizeProperties(
 ) (imageWidth, imageHeight, margin float64, alignString string) {
 	_, fontHeight := pdf.GetFontSize()
 
-	imageHeight = math.Min(layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Height-fontHeight))
-	imageWidth = math.Min(
-		layout.Cell.Height, math.Min(layout.Cell.Width, layout.Cell.Width-pdf.GetStringWidth(label.Label)),
-	)
+	imageHeight = min(layout.Cell.Height, layout.Cell.Width, layout.Cell.Height-fontHeight)
+	imageWidth = min(layout.Cell.Height, layout.Cell.Width, layout.Cell.Width-pdf.GetStringWidth(label.Label))
 
 	minQrWidth := layout.Cell.Width * (minQrWidthPercentage / 100)
 	if imageWidth < minQrWidth {
