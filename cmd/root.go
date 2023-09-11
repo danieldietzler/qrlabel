@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -30,7 +31,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "qrlabel [flags] <output file>",
+	Use:   "qrlabel [flags] <output file>\n",
 	Short: "A tool for generating QR code labels",
 	Long:  "A tool for generating QR code labels",
 	Args:  cobra.MinimumNArgs(1),
@@ -63,6 +64,10 @@ var rootCmd = &cobra.Command{
 			elements := strings.SplitN(line, Separator, 2)
 
 			if len(elements) == 2 {
+				lineBreak := regexp.MustCompile(`([^\\])%n`)
+				escapedLineBreak := regexp.MustCompile(`\\(%n)`)
+				elements[1] = lineBreak.ReplaceAllString(elements[1], "$1\n")
+				elements[1] = escapedLineBreak.ReplaceAllString(elements[1], "$1")
 				labels = append(labels, pdf.Label{Content: elements[0], Label: elements[1]})
 			} else if len(elements) == 1 {
 				labels = append(labels, pdf.Label{Content: elements[0], Label: elements[0]})
@@ -132,7 +137,7 @@ func init() {
 	rootCmd.Flags().StringVarP(
 		&InputFileName, "inputFile", "i", "",
 		"The file containing the label values. If not provided, the input will be read from stdin."+
-			"Each line represents a new label. The use of a separator is optional. If there is none, label and content will be the same",
+			"Each line represents a new label. The use of a separator is optional. If there is none, label and content will be the same. A %s in the label text will enforce a line break (escape with \\%s)",
 	)
 	rootCmd.Flags().StringVarP(
 		&Separator, "separator", "S", ";",
@@ -163,8 +168,8 @@ func init() {
 		"The preferred font size used for the labels. May be automatically decreased, if necessary.",
 	)
 	rootCmd.Flags().Float64Var(
-		&MinQrWidthPercentage, "minqrwidth", 30,
-		"The minimum QR code width in percent. Only used when automatically decreasing the font size to fit label text.",
+		&MinQrWidthPercentage, "minQrSize", 30,
+		"The minimum QR code width/height (depending on the label orientation) in percent. Only used when automatically decreasing the font size to fit label text.",
 	)
 	rootCmd.Flags().BoolVar(
 		&IsBorder, "border", false,
