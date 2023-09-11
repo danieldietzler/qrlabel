@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -46,7 +47,7 @@ var LabelPosition = struct {
 }
 
 func CreatePdf(
-	layout PageLayout, recoveryLevel qrcode.RecoveryLevel, minQrWidthPercentage float64, isBorder bool, fileName string,
+	layout PageLayout, recoveryLevel qrcode.RecoveryLevel, minQrSizePercentage float64, isBorder bool, fileName string,
 	labels []Label,
 ) (*os.File, error) {
 	var pdf *fpdf.Fpdf
@@ -67,7 +68,7 @@ func CreatePdf(
 	marginHeight := math.Max(0, (height-float64(layout.Rows)*layout.Cell.Height)/2)
 	pdf.SetLeftMargin(marginWidth)
 	pdf.SetTopMargin(marginHeight)
-	pdf.SetAutoPageBreak(true, marginHeight)
+	pdf.SetAutoPageBreak(false, marginHeight)
 
 	pdf.AddPage()
 
@@ -83,7 +84,7 @@ func CreatePdf(
 		// ensures that GetStringWidth has the right values
 		pdf.SetCellMargin(0)
 
-		imageWidth, imageHeight, cellMargin, alignString := getSizeProperties(layout, pdf, label, minQrWidthPercentage)
+		imageWidth, imageHeight, cellMargin := getSizeProperties(layout, pdf, &label, minQrSizePercentage)
 
 		pdf.SetCellMargin(cellMargin)
 
@@ -96,9 +97,32 @@ func CreatePdf(
 			border = "1"
 		}
 
-		pdf.CellFormat(
-			layout.Cell.Width, layout.Cell.Height, fmt.Sprintf(label.Label), border, 0, alignString, false, 0, "",
-		)
+		x, y := pdf.GetXY()
+		lines := pdf.SplitText(label.Label, layout.Cell.Width-imageWidth)
+
+		pdf.MultiCell(layout.Cell.Width, layout.Cell.Height, "", border, "", false)
+
+		lineCount := float64(len(lines))
+		_, lineHeight := pdf.GetFontSize()
+		cellWidth := layout.Cell.Width
+		cellHeight := lineHeight * lineCount
+
+		switch layout.LabelPosition {
+		case LabelPosition.TOP:
+			pdf.SetXY(x, y)
+		case LabelPosition.BOTTOM:
+			pdf.SetXY(x, y+imageHeight)
+		case LabelPosition.LEFT:
+			cellWidth -= imageWidth
+			pdf.SetXY(x, y+(layout.Cell.Height-cellHeight)/2)
+		case LabelPosition.RIGHT:
+			cellWidth -= imageWidth
+			pdf.SetXY(x+imageWidth, y+(layout.Cell.Height-cellHeight)/2)
+		}
+
+		pdf.MultiCell(cellWidth, lineHeight, label.Label, "", "CM", false)
+
+		pdf.SetXY(x+layout.Cell.Width, y)
 
 		imageXPos, imageYPos := calculateImagePosition(layout, pdf, imageWidth, imageHeight, cellMargin)
 
@@ -106,8 +130,12 @@ func CreatePdf(
 			label.Content, imageXPos, imageYPos, imageWidth, imageHeight, false, opt, 0, "",
 		)
 
-		if pdf.GetX()+cellMargin > width-marginWidth {
-			pdf.Ln(-1)
+		if pdf.GetX()+layout.Cell.Width > width-marginWidth {
+			pdf.Ln(layout.Cell.Height)
+		}
+
+		if pdf.GetY()+layout.Cell.Height > height-marginHeight {
+			pdf.AddPage()
 		}
 	}
 
@@ -131,44 +159,60 @@ func generateQRCode(content string, recoveryLevel qrcode.RecoveryLevel, writer *
 }
 
 func getSizeProperties(
-	layout PageLayout, pdf *fpdf.Fpdf, label Label, minQrWidthPercentage float64,
-) (imageWidth, imageHeight, margin float64, alignString string) {
+	layout PageLayout, pdf *fpdf.Fpdf, label *Label, minQrSizePercentage float64,
+) (imageWidth, imageHeight, margin float64) {
+	var minQrSize float64
 	_, fontHeight := pdf.GetFontSize()
-
-	imageHeight = min(layout.Cell.Height, layout.Cell.Width, layout.Cell.Height-fontHeight)
-	imageWidth = min(layout.Cell.Height, layout.Cell.Width, layout.Cell.Width-pdf.GetStringWidth(label.Label))
-
-	minQrWidth := layout.Cell.Width * (minQrWidthPercentage / 100)
-	if imageWidth < minQrWidth {
-		imageWidth = minQrWidth
-
-		fontSize, _ := pdf.GetFontSize()
-		for layout.Cell.Width-minQrWidth < pdf.GetStringWidth(label.Label) {
-			fontSize--
-			pdf.SetFontSize(fontSize)
-		}
-
-		fmt.Fprintf(os.Stderr, "Decreased font size to %.1f to fit label\n", fontSize)
-	}
+	fontSize, _ := pdf.GetFontSize()
+	lines := pdf.SplitText(label.Label, layout.Cell.Width)
+	smallestDimension := min(layout.Cell.Height, layout.Cell.Width)
 
 	switch layout.LabelPosition {
-	case LabelPosition.BOTTOM:
-		margin = (layout.Cell.Height - (imageHeight + fontHeight)) / 3
-		alignString = "CB"
+	case LabelPosition.BOTTOM, LabelPosition.TOP:
+		minQrSize = layout.Cell.Height * (minQrSizePercentage / 100)
+		imageHeight = min(smallestDimension, layout.Cell.Height-float64(len(lines))*fontHeight)
+
+		for imageHeight < minQrSize && fontSize > 1 {
+			fontSize--
+			pdf.SetFontSize(fontSize)
+
+			lines = pdf.SplitText(label.Label, layout.Cell.Width)
+			imageHeight = min(smallestDimension, layout.Cell.Height-float64(len(lines))*fontHeight)
+
+			fmt.Fprintf(os.Stderr, "Decreased font size to %.1f to fit label\n", fontSize)
+		}
 		imageWidth = imageHeight
-	case LabelPosition.TOP:
-		margin = (layout.Cell.Height - (imageHeight + fontHeight)) / 3
-		alignString = "CT"
-		imageWidth = imageHeight
-	case LabelPosition.LEFT:
-		margin = (layout.Cell.Width - (imageWidth + pdf.GetStringWidth(label.Label))) / 3
-		alignString = "LM"
-		imageHeight = imageWidth
-	case LabelPosition.RIGHT:
-		margin = (layout.Cell.Width - (imageWidth + pdf.GetStringWidth(label.Label))) / 3
-		alignString = "RM"
+
+	case LabelPosition.LEFT, LabelPosition.RIGHT:
+		minQrSize = layout.Cell.Width * (minQrSizePercentage / 100)
+		lines = pdf.SplitText(label.Label, layout.Cell.Width-smallestDimension)
+		imageWidth = smallestDimension
+
+		for ok := true; ok; ok = fontSize > 1 {
+			longestLine := slices.MaxFunc(
+				lines, func(a, b string) int { return int(pdf.GetStringWidth(a)) - int(pdf.GetStringWidth(b)) },
+			)
+
+			imageWidth = max(minQrSize, layout.Cell.Width-pdf.GetStringWidth(longestLine))
+			imageWidth = min(smallestDimension, imageWidth)
+
+			if float64(len(lines))*fontHeight <= layout.Cell.Height {
+				break
+			}
+
+			fontSize--
+			pdf.SetFontSize(fontSize)
+
+			lines = pdf.SplitText(label.Label, layout.Cell.Width-imageWidth)
+
+			fmt.Fprintf(os.Stderr, "Decreased font size to %.1f to fit label\n", fontSize)
+		}
+
 		imageHeight = imageWidth
 	}
+
+	label.Label = strings.Join(lines, "\n")
+	margin = min(layout.Cell.Height-imageHeight, layout.Cell.Width-imageWidth)
 
 	return
 }
@@ -179,10 +223,10 @@ func calculateImagePosition(layout PageLayout, pdf *fpdf.Fpdf, imageWidth, image
 	switch layout.LabelPosition {
 	case LabelPosition.BOTTOM:
 		imageXPos = pdf.GetX() - layout.Cell.Width/2 - imageHeight/2
-		imageYPos = pdf.GetY() + cellMargin
+		imageYPos = pdf.GetY() + layout.Cell.Height - imageHeight - cellMargin
 	case LabelPosition.TOP:
 		imageXPos = pdf.GetX() - layout.Cell.Width/2 - imageHeight/2
-		imageYPos = pdf.GetY() + layout.Cell.Height - imageHeight - cellMargin
+		imageYPos = pdf.GetY() + cellMargin
 	case LabelPosition.LEFT:
 		imageXPos = pdf.GetX() - imageWidth - cellMargin
 		imageYPos = pdf.GetY() + layout.Cell.Height/2 - imageHeight/2
