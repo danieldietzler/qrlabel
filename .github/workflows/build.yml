@@ -28,6 +28,7 @@ jobs:
         env GOOS=darwin GOARCH=arm64 go build -o qrlabel_macos_arm64
         env GOOS=windows GOARCH=amd64 go build -o qrlabel_windows_amd64.exe
         env GOOS=windows GOARCH=arm64 go build -o qrlabel_windows_arm64.exe
+        chmod +x qrlabel*
       
     - name: Release
       uses: softprops/action-gh-release@v1
