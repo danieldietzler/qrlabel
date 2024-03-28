@@ -78,7 +78,7 @@ func CreatePdf(
 		AllowNegativePosition: true,
 	}
 
-	for _, label := range labels {
+	for index, label := range labels {
 		reader, writer := io.Pipe()
 
 		// ensures that GetStringWidth has the right values
@@ -129,6 +129,10 @@ func CreatePdf(
 		pdf.ImageOptions(
 			label.Content, imageXPos, imageYPos, imageWidth, imageHeight, false, opt, 0, "",
 		)
+
+		if index == len(labels)-1 {
+			break
+		}
 
 		if pdf.GetX()+layout.Cell.Width > width-marginWidth {
 			pdf.Ln(layout.Cell.Height)
